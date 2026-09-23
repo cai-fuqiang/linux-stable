@@ -30,6 +30,13 @@
 #define KVM_HC_SEND_IPI		10
 #define KVM_HC_SCHED_YIELD		11
 #define KVM_HC_MAP_GPA_RANGE		12
+#define KVM_HC_JANUS			13
+
+#define KVM_HC_JANUS_CRAETE		0
+#define KVM_HC_JANUS_DESTROY		1
+#define KVM_HC_JANUS_MAP		2
+#define KVM_HC_JANUS_UNMAP		3
+#define KVM_HC_JANUS_CHECK		4
 
 /*
  * hypercalls use architecture specific

@@ -1,5 +1,6 @@
 #include "janus.h"
 #include <linux/kvm_host.h>
+#include <linux/kvm_para.h>
 
 bool enable_janus = false;
 EXPORT_SYMBOL_GPL(enable_janus);
@@ -33,3 +34,29 @@ int handle_vmfunc_janus(struct kvm_vcpu *vcpu)
 	return kvm_skip_emulated_instruction(vcpu);
 }
 EXPORT_SYMBOL_GPL(handle_vmfunc_janus);
+
+
+unsigned long janus_hypercall(struct kvm_vcpu *vcpu, unsigned long a0,
+				      unsigned long a1, unsigned long a2,
+				      unsigned long a3)
+{
+	unsigned long function = a0;
+	int ret = -KVM_ENOSYS;
+
+	if (!is_supported_janus()) {
+		return ret;
+	}
+
+	switch(function) {
+	case KVM_HC_JANUS_CRAETE:
+	case KVM_HC_JANUS_DESTROY:
+	case KVM_HC_JANUS_MAP:
+	case KVM_HC_JANUS_UNMAP:
+	case KVM_HC_JANUS_CHECK:
+		ret = 0;
+		pr_info("JANUS DUMMY: janus hypercall function %lu\n", function);
+		break;
+	}
+
+	return ret;
+}
