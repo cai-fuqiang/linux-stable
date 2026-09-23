@@ -11,3 +11,6 @@ static inline void set_janus_enable(void)
 {
 	enable_janus = true;
 }
+
+int handle_vmfunc_janus(struct kvm_vcpu *vcpu);
+#endif
