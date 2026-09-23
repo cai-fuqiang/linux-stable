@@ -37,6 +37,9 @@
 #define KVM_FEATURE_HC_MAP_GPA_RANGE	16
 #define KVM_FEATURE_MIGRATION_CONTROL	17
 
+#define KVM_FEATURE_JANUS_GUEST		18
+#define KVM_FEATURE_JANUS_HYPER		19
+
 #define KVM_HINTS_REALTIME      0
 
 /* The last 8 bits are used to indicate how to interpret the flags field
