@@ -7,6 +7,8 @@
 
 #ifndef __ASSEMBLY__
 
+struct pt_regs;
+
 #ifdef CONFIG_PVM_GUEST
 #include <asm/irqflags.h>
 #include <uapi/asm/kvm_para.h>
