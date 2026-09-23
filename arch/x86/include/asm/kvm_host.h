@@ -470,7 +470,6 @@ struct kvm_mmu {
 	* Each domain has 2 bits which are ANDed with AD and WD from PKRU.
 	*/
 	u32 pkru_mask;
-
 	struct kvm_mmu_root_info prev_roots[KVM_MMU_NUM_PREV_ROOTS];
 
 	/*
@@ -812,6 +811,8 @@ struct kvm_vcpu_arch {
 	 * gva_to_gpa translations.
 	 */
 	struct kvm_mmu *walk_mmu;
+
+	struct kvm_mmu *janus_mmu;
 
 	struct kvm_mmu_memory_cache mmu_pte_list_desc_cache;
 	struct kvm_mmu_memory_cache mmu_shadow_page_cache;

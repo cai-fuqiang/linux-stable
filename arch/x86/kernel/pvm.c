@@ -19,6 +19,7 @@
 #include <asm/pvm_para.h>
 #include <asm/setup.h>
 #include <asm/traps.h>
+#include <asm/janus.h>
 
 DEFINE_PER_CPU_PAGE_ALIGNED(struct pvm_vcpu_struct, pvm_vcpu_struct);
 static DEFINE_PER_CPU(unsigned long, pvm_guest_cr3);
@@ -477,6 +478,8 @@ void __init pvm_early_setup(void)
 	setup_clear_cpu_cap(X86_FEATURE_SYSENTER32);
 	setup_clear_cpu_cap(X86_FEATURE_SYSCALL32);
 
+	janus_guest_early_setup();
+
 	/* PVM takes care of %gs when switching to usermode for us */
 	pv_ops.cpu.load_gs_index = pvm_load_gs_index;
 	pv_ops.cpu.cpuid = pvm_cpuid;
@@ -505,6 +508,8 @@ void __init pvm_early_setup(void)
 	wrmsrl(MSR_PVM_EVENT_ENTRY, (unsigned long)(void *)pvm_early_kernel_event_entry - 512);
 
 	pvm_early_patch();
+
+	janus_early_setup();
 }
 
 void pvm_setup_event_handling(void)

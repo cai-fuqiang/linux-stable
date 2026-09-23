@@ -2065,11 +2065,16 @@ static int handle_exit_breakpoint(struct kvm_vcpu *vcpu)
 
 static void handle_cpuid(struct kvm_vcpu *vcpu)
 {
-	u32 eax, ebx, ecx, edx;
+	u32 eax, ebx, ecx, edx, func;
 
-	eax = kvm_rax_read(vcpu);
+	eax = func = kvm_rax_read(vcpu);
 	ecx = kvm_rcx_read(vcpu);
 	kvm_cpuid(vcpu, &eax, &ebx, &ecx, &edx, false);
+
+	if (func == KVM_CPUID_FEATURES && boot_cpu_has(X86_FEATURE_KVM_JANUS_HYPER)) {
+		eax |= 1 << KVM_FEATURE_JANUS_GUEST;
+	}
+
 	kvm_rax_write(vcpu, eax);
 	kvm_rbx_write(vcpu, ebx);
 	kvm_rcx_write(vcpu, ecx);
