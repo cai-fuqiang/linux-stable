@@ -13,4 +13,7 @@ static inline void set_janus_enable(void)
 }
 
 int handle_vmfunc_janus(struct kvm_vcpu *vcpu);
+unsigned long janus_hypercall(struct kvm_vcpu *vcpu, unsigned long a0,
+				      unsigned long a1, unsigned long a2,
+				      unsigned long a3);
 #endif
