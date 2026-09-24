@@ -224,6 +224,7 @@ struct x86_exception;
 union kvm_smram;
 enum x86_intercept;
 enum x86_intercept_stage;
+struct kvm_janus;
 
 #define KVM_NR_DB_REGS	4
 
@@ -1549,6 +1550,7 @@ struct kvm_arch {
 	 */
 #define SPLIT_DESC_CACHE_MIN_NR_OBJECTS (SPTE_ENT_PER_PAGE + 1)
 	struct kvm_mmu_memory_cache split_desc_cache;
+	struct kvm_janus *janus;
 };
 
 struct kvm_vm_stat {
