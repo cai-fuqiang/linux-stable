@@ -1,9 +1,20 @@
 #include "janus.h"
 #include <linux/kvm_host.h>
 #include <linux/kvm_para.h>
+#include <linux/spinlock.h>
+#include <asm/kvm_host.h>
+#include <linux/list.h>
+#include <linux/bitmap.h>
 
 bool enable_janus = false;
 EXPORT_SYMBOL_GPL(enable_janus);
+
+#define JANUS_EPTP_NUM_MAX	(512)
+#define JANUS_EPTP_INDEX_MAX	(JANUS_EPTP_NUM_MAX - 1)
+
+struct kvm_janus {
+	DECLARE_BITMAP(eptp_index_unused, JANUS_EPTP_NUM_MAX);
+};
 
 int handle_vmfunc_janus(struct kvm_vcpu *vcpu)
 {
@@ -59,4 +70,37 @@ unsigned long janus_hypercall(struct kvm_vcpu *vcpu, unsigned long a0,
 	}
 
 	return ret;
+}
+
+int kvm_janus_init_vm(struct kvm *kvm)
+{
+	struct kvm_janus *kvm_janus;
+	struct kvm_arch *kvm_arch = &kvm->arch;
+	int ret = 0;
+
+	if (!is_supported_janus()) {
+		return ret;
+	}
+
+	kvm_janus = kmalloc(sizeof(*kvm_janus), GFP_KERNEL);
+	if (!kvm_janus) {
+		ret = -ENOMEM;
+		return ret;
+	}
+
+	bitmap_fill(kvm_janus->eptp_index_unused, JANUS_EPTP_NUM_MAX);
+
+	/* 0 use for L1 eptp */
+	clear_bit(0, kvm_janus->eptp_index_unused);
+
+	kvm_arch->janus = kvm_janus;
+
+	return 0;
+}
+
+void kvm_janus_uninit_vm(struct kvm *kvm)
+{
+	struct kvm_janus *kvm_janus = kvm->arch.janus;
+	kfree(kvm_janus);
+	kvm->arch.janus = NULL;
 }
