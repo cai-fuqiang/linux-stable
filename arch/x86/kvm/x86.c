@@ -86,6 +86,7 @@
 #include <asm/sgx.h>
 #include <asm/pvm_para.h>
 #include <clocksource/hyperv_timer.h>
+#include "janus/janus.h"
 
 #define CREATE_TRACE_POINTS
 #include "trace.h"
@@ -10081,6 +10082,9 @@ unsigned long __kvm_emulate_hypercall(struct kvm_vcpu *vcpu, unsigned long nr,
 		vcpu->arch.complete_userspace_io = complete_hypercall_exit;
 		/* stat is incremented on completion. */
 		return 0;
+	case KVM_HC_JANUS:
+		ret = janus_hypercall(vcpu, a0, a1, a2, a3);
+		break;
 	}
 	default:
 		ret = -KVM_ENOSYS;
