@@ -34,6 +34,8 @@ endif
 
 kvm-pvm-y 		+= pvm/pvm.o pvm/host_mmu.o
 
+kvm-y			+= janus/janus.o
+
 obj-$(CONFIG_KVM_X86)	+= kvm.o
 obj-$(CONFIG_KVM_INTEL)	+= kvm-intel.o
 obj-$(CONFIG_KVM_AMD)	+= kvm-amd.o

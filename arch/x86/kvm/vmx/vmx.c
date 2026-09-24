@@ -73,6 +73,7 @@
 #include "smm.h"
 #include "vmx_onhyperv.h"
 #include "posted_intr.h"
+#include "../janus/janus.h"
 
 MODULE_AUTHOR("Qumranet");
 MODULE_DESCRIPTION("KVM support for VMX (Intel VT-x) extensions");
@@ -4619,10 +4620,11 @@ static u32 vmx_secondary_exec_control(struct vcpu_vmx *vmx)
 	exec_control &= ~SECONDARY_EXEC_VIRTUALIZE_X2APIC_MODE;
 
 	/*
-	 * KVM doesn't support VMFUNC for L1, but the control is set in KVM's
-	 * base configuration as KVM emulates VMFUNC[EPTP_SWITCHING] for L2.
+	 * KVM only support VMFUNC for JANUS HYPER on L1 and in KVM's base
+	 * configuration as KVM emulates VMFUNC[EPTP_SWITCHING] for L2.
 	 */
-	exec_control &= ~SECONDARY_EXEC_ENABLE_VMFUNC;
+	if (!is_supported_janus())
+		exec_control &= ~SECONDARY_EXEC_ENABLE_VMFUNC;
 
 	/* SECONDARY_EXEC_DESC is enabled/disabled on writes to CR4.UMIP,
 	 * in vmx_set_cr4.  */
@@ -6150,7 +6152,7 @@ static int (*kvm_vmx_exit_handlers[])(struct kvm_vcpu *vcpu) = {
 	[EXIT_REASON_RDSEED]                  = kvm_handle_invalid_op,
 	[EXIT_REASON_PML_FULL]		      = handle_pml_full,
 	[EXIT_REASON_INVPCID]                 = handle_invpcid,
-	[EXIT_REASON_VMFUNC]		      = handle_vmx_instruction,
+	[EXIT_REASON_VMFUNC]		      = handle_vmfunc_janus,
 	[EXIT_REASON_PREEMPTION_TIMER]	      = handle_preemption_timer,
 	[EXIT_REASON_ENCLS]		      = handle_encls,
 	[EXIT_REASON_BUS_LOCK]                = handle_bus_lock_vmexit,

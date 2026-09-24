@@ -58,6 +58,7 @@
 #include <asm/vmx.h>
 
 #include "trace.h"
+#include "../janus/janus.h"
 
 static bool nx_hugepage_mitigation_hard_disabled;
 
@@ -6381,6 +6382,10 @@ void kvm_configure_mmu(bool enable_tdp, int tdp_forced_root_level,
 		max_huge_page_level = PG_LEVEL_1G;
 	else
 		max_huge_page_level = PG_LEVEL_2M;
+
+	if (tdp_mmu_enabled) {
+		set_janus_enable();
+	}
 }
 EXPORT_SYMBOL_GPL(kvm_configure_mmu);
 

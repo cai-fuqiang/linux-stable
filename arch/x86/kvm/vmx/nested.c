@@ -18,6 +18,7 @@
 #include "vmx.h"
 #include "x86.h"
 #include "smm.h"
+#include "../janus/janus.h"
 
 static bool __read_mostly enable_shadow_vmcs = 1;
 module_param_named(enable_shadow_vmcs, enable_shadow_vmcs, bool, S_IRUGO);
@@ -6062,9 +6063,13 @@ static int handle_vmfunc(struct kvm_vcpu *vcpu)
 	 * VMFUNC should never execute cleanly while L1 is active; KVM supports
 	 * VMFUNC for nested VMs, but not for L1.
 	 */
-	if (WARN_ON_ONCE(!is_guest_mode(vcpu))) {
-		kvm_queue_exception(vcpu, UD_VECTOR);
-		return 1;
+	if (!is_guest_mode(vcpu)) {
+		if (!is_supported_janus()) {
+			WARN_ON_ONCE(1);
+			kvm_queue_exception(vcpu, UD_VECTOR);
+			return 1;
+		}
+		return handle_vmfunc_janus(vcpu);
 	}
 
 	vmcs12 = get_vmcs12(vcpu);

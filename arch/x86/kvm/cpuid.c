@@ -28,6 +28,7 @@
 #include "trace.h"
 #include "pmu.h"
 #include "xen.h"
+#include "janus/janus.h"
 
 /*
  * Unlike "struct cpuinfo_x86.x86_capability", kvm_cpu_caps doesn't need to be
@@ -1679,7 +1680,7 @@ int kvm_emulate_cpuid(struct kvm_vcpu *vcpu)
 	func = eax = kvm_rax_read(vcpu);
 	ecx = kvm_rcx_read(vcpu);
 	kvm_cpuid(vcpu, &eax, &ebx, &ecx, &edx, false);
-	if (func == KVM_CPUID_FEATURES && tdp_mmu_enabled) {
+	if (func == KVM_CPUID_FEATURES && is_supported_janus()) {
 		eax |= 1 << KVM_FEATURE_JANUS_HYPER;
 	}
 	kvm_rax_write(vcpu, eax);
