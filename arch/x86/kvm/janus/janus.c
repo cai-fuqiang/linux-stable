@@ -69,6 +69,12 @@ kvm_calc_janus_mmu_root_page_role(struct kvm_vcpu *vcpu,
 	return root_role;
 }
 
+static void kvm_janus_debug_root(struct kvm_vcpu *vcpu, u16 index)
+{
+	union kvm_mmu_page_role root_role = kvm_calc_janus_mmu_root_page_role(vcpu, index);
+	tdp_mmu_debug_root(vcpu->kvm, &root_role);
+}
+
 static int kvm_janus_mmu_alloc_root(struct kvm_vcpu *vcpu, u16 index)
 {
 	union kvm_mmu_page_role root_role = kvm_calc_janus_mmu_root_page_role(vcpu, index);

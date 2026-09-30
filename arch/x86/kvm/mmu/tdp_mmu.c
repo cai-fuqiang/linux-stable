@@ -10,6 +10,7 @@
 
 #include <asm/cmpxchg.h>
 #include <trace/events/kvm.h>
+#include "../janus/janus.h"
 
 /* Initializes the TDP MMU for the VM, if enabled. */
 void kvm_mmu_init_tdp_mmu(struct kvm *kvm)
@@ -757,6 +758,50 @@ static inline gfn_t tdp_mmu_max_gfn_exclusive(void)
 	 * the slow emulation path every time.
 	 */
 	return kvm_mmu_max_gfn() + 1;
+}
+
+#include <linux/bitfield.h>
+static void __tdp_mmu_debug_root(struct kvm *kvm,
+				 struct kvm_mmu_page *root,
+				 int debug_level)
+{
+	struct tdp_iter iter;
+
+	gfn_t end = tdp_mmu_max_gfn_exclusive();
+	gfn_t start = 0;
+
+	for_each_tdp_pte_min_level(iter, root, debug_level, start, end) {
+		if (!is_shadow_present_pte(iter.old_spte))
+			continue;
+
+		pr_info("iter.level (%d) spte_pfn(%lx) spte(%lx) spte_p_fn(%lx)\n",
+				iter.level,
+				(unsigned long)(page_to_pfn(virt_to_page(iter.sptep))),
+				(unsigned long)iter.old_spte,
+				(unsigned long) FIELD_GET(GENMASK_ULL(51, 12), iter.old_spte));
+	}
+}
+
+void tdp_mmu_debug_root(struct kvm *kvm, union kvm_mmu_page_role *root_role)
+{
+	struct kvm_mmu_page *root;
+	read_lock(&kvm->mmu_lock);
+	for_each_tdp_mmu_root_yield_safe(kvm, root) {
+		if (root_role) {
+			if (root->role.word != root_role->word)
+				continue;
+		}
+		pr_info("kvm mmu debug root root_role.janus_index(%d) root_level(%d)\n",
+				root_role->janus_index,
+				root_role->level);
+		pr_info("root_sp (%lx) level (%d) root spt(%lx)\n",
+				(unsigned long)root,
+				root->role.level,
+				(unsigned long)root->spt);
+
+		__tdp_mmu_debug_root(kvm, root, PG_LEVEL_4K);
+	}
+	read_unlock(&kvm->mmu_lock);
 }
 
 static void __tdp_mmu_zap_root(struct kvm *kvm, struct kvm_mmu_page *root,

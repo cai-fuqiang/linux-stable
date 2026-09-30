@@ -73,6 +73,7 @@ int kvm_tdp_mmu_get_walk(struct kvm_vcpu *vcpu, u64 addr, u64 *sptes,
 u64 *kvm_tdp_mmu_fast_pf_get_last_sptep(struct kvm_vcpu *vcpu, gfn_t gfn,
 					u64 *spte);
 
+void tdp_mmu_debug_root(struct kvm *kvm, union kvm_mmu_page_role *root_role);
 int kvm_mmu_get_tdp_level(struct kvm_vcpu *vcpu);
 
 #ifdef CONFIG_X86_64
