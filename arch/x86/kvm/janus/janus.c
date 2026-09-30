@@ -5,6 +5,9 @@
 #include <asm/kvm_host.h>
 #include <linux/list.h>
 #include <linux/bitmap.h>
+#include "../mmu/mmu_internal.h"
+#include "../mmu/spte.h"
+#include "../mmu/tdp_mmu.h"
 
 bool enable_janus = false;
 EXPORT_SYMBOL_GPL(enable_janus);
@@ -46,6 +49,25 @@ int handle_vmfunc_janus(struct kvm_vcpu *vcpu)
 }
 EXPORT_SYMBOL_GPL(handle_vmfunc_janus);
 
+static union kvm_mmu_page_role
+kvm_calc_janus_mmu_root_page_role(struct kvm_vcpu *vcpu,
+				  u16 index)
+{
+	union kvm_mmu_page_role root_role = {0};
+
+	root_role.access = ACC_ALL;
+	root_role.cr0_wp = true;
+	root_role.efer_nx = true;
+	root_role.smm = 0;
+	root_role.guest_mode = false;
+	root_role.ad_disabled = !kvm_ad_enabled();
+	root_role.level = kvm_mmu_get_tdp_level(vcpu);
+	root_role.direct = true;
+	root_role.has_4_byte_gpte = false;
+	root_role.janus_index = index;
+	root_role.janus = true;
+	return root_role;
+}
 
 unsigned long janus_hypercall(struct kvm_vcpu *vcpu, unsigned long a0,
 				      unsigned long a1, unsigned long a2,

@@ -353,15 +353,16 @@ union kvm_mmu_page_role {
 		unsigned guest_mode:1;
 		unsigned passthrough:1;
 		unsigned host_mmu_la57_top_p4d:1;
-		unsigned :4;
-
 		/*
 		 * This is left at the top of the word so that
 		 * kvm_memslots_for_spte_role can extract it with a
 		 * simple shift.  While there is room, give it a whole
 		 * byte so it is also faster to load it from memory.
 		 */
-		unsigned smm:8;
+		unsigned smm:1;
+		unsigned janus:1;
+		unsigned :1;
+		unsigned janus_index:9;
 	};
 };
 
