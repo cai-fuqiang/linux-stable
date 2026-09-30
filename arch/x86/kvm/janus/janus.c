@@ -114,6 +114,8 @@ retry:
 
 	if (ret < 0)
 		goto restore_index_bitmap;
+	kvm_janus_debug_root(vcpu, janus_index);
+
 	return 0;
 restore_index_bitmap:
 	set_bit(janus_index, janus->eptp_index_unused);
@@ -188,6 +190,7 @@ static int kvm_hc_map_range(struct kvm_vcpu *vcpu,
 
 	ret = kvm_tdp_mmu_page_fault(vcpu, &fault);
 
+	kvm_janus_debug_root(vcpu, janus_index);
 	return ret;
 }
 
