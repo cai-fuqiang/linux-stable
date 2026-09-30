@@ -286,4 +286,7 @@ static inline gpa_t kvm_translate_gpa(struct kvm_vcpu *vcpu,
 		return gpa;
 	return translate_nested_gpa(vcpu, gpa, access, exception);
 }
+
+int kvm_tdp_mmu_page_fault(struct kvm_vcpu *vcpu,
+			   struct kvm_page_fault *fault);
 #endif

@@ -222,11 +222,10 @@ static void tdp_mmu_init_child_sp(struct kvm_mmu_page *child_sp,
 
 	tdp_mmu_init_sp(child_sp, iter->sptep, iter->gfn, role);
 }
-
-int kvm_tdp_mmu_alloc_root(struct kvm_vcpu *vcpu)
+int __kvm_tdp_mmu_alloc_root(struct kvm_vcpu *vcpu,
+			     union kvm_mmu_page_role role,
+			     struct kvm_mmu_page **root_page)
 {
-	struct kvm_mmu *mmu = vcpu->arch.mmu;
-	union kvm_mmu_page_role role = mmu->root_role;
 	int as_id = kvm_mmu_role_as_id(role);
 	struct kvm *kvm = vcpu->kvm;
 	struct kvm_mmu_page *root;
@@ -277,14 +276,30 @@ out_spin_unlock:
 	spin_unlock(&kvm->arch.tdp_mmu_pages_lock);
 out_read_unlock:
 	read_unlock(&kvm->mmu_lock);
+	if (root_page) {
+		*root_page = root;
+	}
+	return 0;
+}
+
+int kvm_tdp_mmu_alloc_root(struct kvm_vcpu *vcpu,
+			     union kvm_mmu_page_role role)
+{
+	struct kvm_mmu *mmu = vcpu->arch.mmu;
+	int ret;
+	struct kvm_mmu_page *root_page;
+
+	ret = __kvm_tdp_mmu_alloc_root(vcpu, role, &root_page);
+
 	/*
 	 * Note, KVM_REQ_MMU_FREE_OBSOLETE_ROOTS will prevent entering the guest
 	 * and actually consuming the root if it's invalidated after dropping
 	 * mmu_lock, and the root can't be freed as this vCPU holds a reference.
 	 */
-	mmu->root.hpa = __pa(root->spt);
+	mmu->root.hpa = __pa(root_page->spt);
 	mmu->root.pgd = 0;
-	return 0;
+
+	return ret;
 }
 
 static void handle_changed_spte(struct kvm *kvm, int as_id, gfn_t gfn,
@@ -902,7 +917,7 @@ bool kvm_tdp_mmu_zap_leafs(struct kvm *kvm, gfn_t start, gfn_t end, bool flush)
 	return flush;
 }
 
-void kvm_tdp_mmu_zap_all(struct kvm *kvm)
+void kvm_tdp_mmu_zap_role(struct kvm *kvm, union kvm_mmu_page_role *root_role)
 {
 	struct kvm_mmu_page *root;
 
@@ -919,8 +934,18 @@ void kvm_tdp_mmu_zap_all(struct kvm *kvm)
 	 * KVM_RUN is unreachable, i.e. no vCPUs will ever service the request.
 	 */
 	lockdep_assert_held_write(&kvm->mmu_lock);
-	for_each_tdp_mmu_root_yield_safe(kvm, root)
+	for_each_tdp_mmu_root_yield_safe(kvm, root) {
+		if (root_role) {
+			if (root->role.word != root_role->word)
+				continue;
+		}
 		tdp_mmu_zap_root(kvm, root, false);
+	}
+}
+
+void kvm_tdp_mmu_zap_all(struct kvm *kvm)
+{
+	kvm_tdp_mmu_zap_role(kvm, NULL);
 }
 
 /*
@@ -1022,14 +1047,17 @@ static int tdp_mmu_map_handle_target_level(struct kvm_vcpu *vcpu,
 	u64 new_spte;
 	int ret = RET_PF_FIXED;
 	bool wrprot = false;
+	unsigned int pte_access = ACC_ALL;
 
 	if (WARN_ON_ONCE(sp->role.level != fault->goal_level))
 		return RET_PF_RETRY;
 
 	if (unlikely(!fault->slot))
 		new_spte = make_mmio_spte(vcpu, iter->gfn, ACC_ALL);
-	else
-		wrprot = make_spte(vcpu, sp, fault->slot, ACC_ALL, iter->gfn,
+	else {
+		if (fault->is_janus_map && (!fault->janus_access_writable))
+			pte_access &= ~ACC_WRITE_MASK;
+		wrprot = make_spte(vcpu, sp, fault->slot, pte_access, iter->gfn,
 					 fault->pfn, iter->old_spte, fault->prefetch, true,
 					 fault->map_writable, &new_spte);
 
@@ -1107,7 +1135,28 @@ int kvm_tdp_mmu_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 	struct kvm *kvm = vcpu->kvm;
 	struct tdp_iter iter;
 	struct kvm_mmu_page *sp;
-	int ret = RET_PF_RETRY;
+	struct kvm_mmu_page *root_sp, *root_sp_janus;
+
+	gfn_t fault_gfn;
+	int ret = RET_PF_INVALID;
+
+	if (fault->is_janus_map) {
+		/* under mmu read lock */
+		for_each_tdp_mmu_root_yield_safe(kvm, root_sp_janus) {
+			if (root_sp_janus->role.word == fault->root_role.word) {
+				root_sp = root_sp_janus;
+				break;
+			}
+		}
+		if (!root_sp) {
+			return ret;
+		}
+		fault_gfn = fault->gaddr_l2 >> PAGE_SHIFT;
+	} else {
+		fault_gfn = fault->gfn;
+		root_sp = root_to_sp(mmu->root.hpa);
+	}
+	ret = RET_PF_RETRY;
 
 	kvm_mmu_hugepage_adjust(vcpu, fault);
 
@@ -1115,7 +1164,8 @@ int kvm_tdp_mmu_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 
 	rcu_read_lock();
 
-	tdp_mmu_for_each_pte(iter, mmu, fault->gfn, fault->gfn + 1) {
+	for_each_tdp_pte(iter, root_sp, fault_gfn, fault_gfn + 1)
+	{
 		int r;
 
 		if (fault->nx_huge_page_workaround_enabled)

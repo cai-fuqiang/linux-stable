@@ -117,6 +117,11 @@ int vmx_set_hv_timer(struct kvm_vcpu *vcpu, u64 guest_deadline_tsc,
 		     bool *expired);
 void vmx_cancel_hv_timer(struct kvm_vcpu *vcpu);
 #endif
+/*
+ * TODO Maybe it would be better to put it inside
+ * the CONFIG_X86_64 macro.
+ */
+u64 vmx_get_tdp_root_ptr(struct kvm_vcpu *vcpu);
 void vmx_setup_mce(struct kvm_vcpu *vcpu);
 
 #endif /* __KVM_X86_VMX_X86_OPS_H */

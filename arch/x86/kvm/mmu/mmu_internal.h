@@ -189,7 +189,13 @@ static inline bool is_nx_huge_page_enabled(struct kvm *kvm)
 
 struct kvm_page_fault {
 	/* arguments to kvm_mmu_do_page_fault.  */
-	const gpa_t addr;
+	union {
+		const gpa_t addr;
+		struct {
+			const gpa_t gaddr_l2;
+			const gpa_t gaddr_l1;
+		};
+	};
 	const u64 error_code;
 	const bool prefetch;
 
@@ -203,6 +209,8 @@ struct kvm_page_fault {
 	/* Derived from mmu and global state.  */
 	const bool is_tdp;
 	const bool is_private;
+	const bool is_janus_map;
+	const union kvm_mmu_page_role root_role;
 	const bool nx_huge_page_workaround_enabled;
 
 	/*
@@ -247,6 +255,11 @@ struct kvm_page_fault {
 	 * is changing its own translation in the guest page tables.
 	 */
 	bool write_fault_to_shadow_pgtable;
+
+	/*
+	 * use for janus
+	 */
+	const bool janus_access_writable;
 };
 
 int kvm_tdp_page_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault);

@@ -5044,6 +5044,11 @@ static void *svm_alloc_apic_backing_page(struct kvm_vcpu *vcpu)
 	return page_address(page);
 }
 
+static u64 svm_get_tdp_root_ptr_dummy(struct kvm_vcpu *vcpu)
+{
+	return INVALID_PAGE;
+}
+
 static struct kvm_x86_ops svm_x86_ops __initdata = {
 	.name = KBUILD_MODNAME,
 
@@ -5182,6 +5187,7 @@ static struct kvm_x86_ops svm_x86_ops __initdata = {
 	.gmem_prepare = sev_gmem_prepare,
 	.gmem_invalidate = sev_gmem_invalidate,
 	.private_max_mapping_level = sev_private_max_mapping_level,
+	.get_tdp_root_ptr = svm_get_tdp_root_ptr_dummy,
 };
 
 /*
