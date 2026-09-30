@@ -8095,6 +8095,15 @@ int vmx_check_intercept(struct kvm_vcpu *vcpu,
 	return X86EMUL_UNHANDLEABLE;
 }
 
+u64 vmx_get_tdp_root_ptr(struct kvm_vcpu *vcpu)
+{
+	u64 vmcs_ept;
+
+	vmcs_ept = vmcs_read64(EPT_POINTER);
+	vmcs_ept &= ~(SZ_4K - 1);
+	return vmcs_ept;
+}
+
 #ifdef CONFIG_X86_64
 /* (a << shift) / divisor, return 1 if overflow otherwise 0 */
 static inline int u64_shl_div_u64(u64 a, unsigned int shift,
