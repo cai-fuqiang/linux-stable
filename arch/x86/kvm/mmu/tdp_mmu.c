@@ -222,11 +222,10 @@ static void tdp_mmu_init_child_sp(struct kvm_mmu_page *child_sp,
 
 	tdp_mmu_init_sp(child_sp, iter->sptep, iter->gfn, role);
 }
-
-int kvm_tdp_mmu_alloc_root(struct kvm_vcpu *vcpu)
+int __kvm_tdp_mmu_alloc_root(struct kvm_vcpu *vcpu,
+			     union kvm_mmu_page_role role,
+			     struct kvm_mmu_page **root_page)
 {
-	struct kvm_mmu *mmu = vcpu->arch.mmu;
-	union kvm_mmu_page_role role = mmu->root_role;
 	int as_id = kvm_mmu_role_as_id(role);
 	struct kvm *kvm = vcpu->kvm;
 	struct kvm_mmu_page *root;
@@ -277,14 +276,30 @@ out_spin_unlock:
 	spin_unlock(&kvm->arch.tdp_mmu_pages_lock);
 out_read_unlock:
 	read_unlock(&kvm->mmu_lock);
+	if (root_page) {
+		*root_page = root;
+	}
+	return 0;
+}
+
+int kvm_tdp_mmu_alloc_root(struct kvm_vcpu *vcpu,
+			     union kvm_mmu_page_role role)
+{
+	struct kvm_mmu *mmu = vcpu->arch.mmu;
+	int ret;
+	struct kvm_mmu_page *root_page;
+
+	ret = __kvm_tdp_mmu_alloc_root(vcpu, role, &root_page);
+
 	/*
 	 * Note, KVM_REQ_MMU_FREE_OBSOLETE_ROOTS will prevent entering the guest
 	 * and actually consuming the root if it's invalidated after dropping
 	 * mmu_lock, and the root can't be freed as this vCPU holds a reference.
 	 */
-	mmu->root.hpa = __pa(root->spt);
+	mmu->root.hpa = __pa(root_page->spt);
 	mmu->root.pgd = 0;
-	return 0;
+
+	return ret;
 }
 
 static void handle_changed_spte(struct kvm *kvm, int as_id, gfn_t gfn,
@@ -902,7 +917,7 @@ bool kvm_tdp_mmu_zap_leafs(struct kvm *kvm, gfn_t start, gfn_t end, bool flush)
 	return flush;
 }
 
-void kvm_tdp_mmu_zap_all(struct kvm *kvm)
+void kvm_tdp_mmu_zap_role(struct kvm *kvm, union kvm_mmu_page_role *root_role)
 {
 	struct kvm_mmu_page *root;
 
@@ -919,8 +934,18 @@ void kvm_tdp_mmu_zap_all(struct kvm *kvm)
 	 * KVM_RUN is unreachable, i.e. no vCPUs will ever service the request.
 	 */
 	lockdep_assert_held_write(&kvm->mmu_lock);
-	for_each_tdp_mmu_root_yield_safe(kvm, root)
+	for_each_tdp_mmu_root_yield_safe(kvm, root) {
+		if (root_role) {
+			if (root->role.word != root_role->word)
+				continue;
+		}
 		tdp_mmu_zap_root(kvm, root, false);
+	}
+}
+
+void kvm_tdp_mmu_zap_all(struct kvm *kvm)
+{
+	kvm_tdp_mmu_zap_role(kvm, NULL);
 }
 
 /*

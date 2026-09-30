@@ -3804,7 +3804,7 @@ static int mmu_alloc_direct_roots(struct kvm_vcpu *vcpu)
 	int r;
 
 	if (tdp_mmu_enabled)
-		return kvm_tdp_mmu_alloc_root(vcpu);
+		return kvm_tdp_mmu_alloc_root(vcpu, mmu->root_role);
 
 	write_lock(&vcpu->kvm->mmu_lock);
 	r = make_mmu_pages_available(vcpu);
@@ -4745,7 +4745,7 @@ int kvm_handle_page_fault(struct kvm_vcpu *vcpu, u64 error_code,
 EXPORT_SYMBOL_GPL(kvm_handle_page_fault);
 
 #ifdef CONFIG_X86_64
-static int kvm_tdp_mmu_page_fault(struct kvm_vcpu *vcpu,
+int kvm_tdp_mmu_page_fault(struct kvm_vcpu *vcpu,
 				  struct kvm_page_fault *fault)
 {
 	kvm_pfn_t orig_pfn;
@@ -5517,7 +5517,7 @@ void __kvm_mmu_refresh_passthrough_bits(struct kvm_vcpu *vcpu,
 	reset_guest_paging_metadata(vcpu, mmu);
 }
 
-static inline int kvm_mmu_get_tdp_level(struct kvm_vcpu *vcpu)
+int kvm_mmu_get_tdp_level(struct kvm_vcpu *vcpu)
 {
 	/* tdp_root_level is architecture forced level, use it if nonzero */
 	if (tdp_root_level)
