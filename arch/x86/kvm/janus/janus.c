@@ -264,3 +264,30 @@ void kvm_janus_uninit_vm(struct kvm *kvm)
 	kfree(kvm_janus);
 	kvm->arch.janus = NULL;
 }
+
+int kvm_janus_pre_handle_ept_violation(struct kvm_vcpu *vcpu,
+				       u64 error_code,
+				       gpa_t gpa)
+{
+	int rc = RET_PF_CONTINUE;
+	unsigned long vmcs_ept;
+	if (!is_supported_janus()) {
+		return rc;
+	}
+
+	vmcs_ept = kvm_x86_call(get_tdp_root_ptr)(vcpu);
+	//TMP TODO
+	BUG_ON(vmcs_ept == INVALID_PAGE);
+	BUG_ON(vcpu->arch.root_mmu.root.hpa == INVALID_PAGE);
+
+	//This is ept violation from L1 access
+	if (vmcs_ept == vcpu->arch.root_mmu.root.hpa) {
+		return rc;
+	}
+
+	error_code |= PRERR_JANUS_PF_MASK;
+	kvm_queue_exception_e_p(vcpu, PF_VECTOR, error_code, gpa);
+
+	return RET_PF_EMULATE;
+}
+EXPORT_SYMBOL_GPL(kvm_janus_pre_handle_ept_violation);

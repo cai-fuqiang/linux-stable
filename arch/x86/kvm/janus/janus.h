@@ -20,4 +20,8 @@ unsigned long janus_hypercall(struct kvm_vcpu *vcpu, unsigned long a0,
 				      unsigned long a3);
 int kvm_janus_init_vm(struct kvm *kvm);
 void kvm_janus_uninit_vm(struct kvm *kvm);
+int kvm_janus_pre_handle_ept_violation(struct kvm_vcpu *vcpu,
+				       u64 error_code,
+				       gpa_t gpa);
+
 #endif

@@ -73,6 +73,7 @@
 #include "smm.h"
 #include "vmx_onhyperv.h"
 #include "posted_intr.h"
+#include "../mmu/mmu_internal.h"
 #include "../janus/janus.h"
 
 MODULE_AUTHOR("Qumranet");
@@ -5809,6 +5810,10 @@ static int handle_ept_violation(struct kvm_vcpu *vcpu)
 	if (error_code & EPT_VIOLATION_GVA_IS_VALID)
 		error_code |= (exit_qualification & EPT_VIOLATION_GVA_TRANSLATED) ?
 			      PFERR_GUEST_FINAL_MASK : PFERR_GUEST_PAGE_MASK;
+
+	if (kvm_janus_pre_handle_ept_violation(vcpu, error_code, gpa) == RET_PF_EMULATE) {
+		return RET_PF_EMULATE;
+	}
 
 	/*
 	 * Check that the GPA doesn't exceed physical memory limits, as that is
