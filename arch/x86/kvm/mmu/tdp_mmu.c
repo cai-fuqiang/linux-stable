@@ -1047,14 +1047,17 @@ static int tdp_mmu_map_handle_target_level(struct kvm_vcpu *vcpu,
 	u64 new_spte;
 	int ret = RET_PF_FIXED;
 	bool wrprot = false;
+	unsigned int pte_access = ACC_ALL;
 
 	if (WARN_ON_ONCE(sp->role.level != fault->goal_level))
 		return RET_PF_RETRY;
 
 	if (unlikely(!fault->slot))
 		new_spte = make_mmio_spte(vcpu, iter->gfn, ACC_ALL);
-	else
-		wrprot = make_spte(vcpu, sp, fault->slot, ACC_ALL, iter->gfn,
+	else {
+		if (fault->is_janus_map && (!fault->janus_access_writable))
+			pte_access &= ~ACC_WRITE_MASK;
+		wrprot = make_spte(vcpu, sp, fault->slot, pte_access, iter->gfn,
 					 fault->pfn, iter->old_spte, fault->prefetch, true,
 					 fault->map_writable, &new_spte);
 
@@ -1132,7 +1135,28 @@ int kvm_tdp_mmu_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 	struct kvm *kvm = vcpu->kvm;
 	struct tdp_iter iter;
 	struct kvm_mmu_page *sp;
-	int ret = RET_PF_RETRY;
+	struct kvm_mmu_page *root_sp, *root_sp_janus;
+
+	gfn_t fault_gfn;
+	int ret = RET_PF_INVALID;
+
+	if (fault->is_janus_map) {
+		/* under mmu read lock */
+		for_each_tdp_mmu_root_yield_safe(kvm, root_sp_janus) {
+			if (root_sp_janus->role.word == fault->root_role.word) {
+				root_sp = root_sp_janus;
+				break;
+			}
+		}
+		if (!root_sp) {
+			return ret;
+		}
+		fault_gfn = fault->gaddr_l2 >> PAGE_SHIFT;
+	} else {
+		fault_gfn = fault->gfn;
+		root_sp = root_to_sp(mmu->root.hpa);
+	}
+	ret = RET_PF_RETRY;
 
 	kvm_mmu_hugepage_adjust(vcpu, fault);
 
@@ -1140,7 +1164,8 @@ int kvm_tdp_mmu_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 
 	rcu_read_lock();
 
-	tdp_mmu_for_each_pte(iter, mmu, fault->gfn, fault->gfn + 1) {
+	for_each_tdp_pte(iter, root_sp, fault_gfn, fault_gfn + 1)
+	{
 		int r;
 
 		if (fault->nx_huge_page_workaround_enabled)

@@ -138,6 +138,53 @@ static int kvm_hc_janus_delete(struct kvm_vcpu *vcpu, u16 janus_index)
 	kvm_janus_mmu_zap_root(vcpu, janus_index);
 	return 0;
 }
+
+static int kvm_hc_map_range(struct kvm_vcpu *vcpu,
+			    gfn_t gfn_l1,
+			    gfn_t gfn_l2,
+			    u16 janus_index,
+			    u32 access_mask)
+{
+	int ret;
+	union kvm_mmu_page_role root_role = kvm_calc_janus_mmu_root_page_role(vcpu,janus_index);
+	struct kvm_page_fault fault = {
+		.gaddr_l1 = gfn_l1 << PAGE_SHIFT,
+		.gaddr_l2 = gfn_l2 << PAGE_SHIFT,
+		.error_code = 0,
+		//minimum access
+		.exec = false,
+		.write = false,
+		.present = false,
+		.rsvd = false,
+		.user = false,
+		.prefetch = false,
+		.is_tdp = true,
+		.is_janus_map = true,
+		.root_role = root_role,
+		.nx_huge_page_workaround_enabled = false, //TODO
+		/*
+		 * set max level to PG_LEVEL_4K to avoid
+		 * mapping hugepage
+		 */
+		.max_level = PG_LEVEL_4K,
+		.req_level = PG_LEVEL_4K,
+		.goal_level = PG_LEVEL_4K,
+		.is_private = false,
+		.pfn = KVM_PFN_ERR_FAULT,
+		.hva = KVM_HVA_ERR_BAD,
+		.janus_access_writable = access_mask & ACC_WRITE_MASK
+	};
+
+	fault.gfn = gfn_l1;
+	fault.slot = kvm_vcpu_gfn_to_memslot(vcpu, fault.gfn);
+
+	pr_info("enter kvm_hc_map_range\n");
+
+	ret = kvm_tdp_mmu_page_fault(vcpu, &fault);
+
+	return ret;
+}
+
 unsigned long janus_hypercall(struct kvm_vcpu *vcpu, unsigned long a0,
 				      unsigned long a1, unsigned long a2,
 				      unsigned long a3)
