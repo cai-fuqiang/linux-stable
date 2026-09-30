@@ -4771,6 +4771,10 @@ int kvm_tdp_mmu_page_fault(struct kvm_vcpu *vcpu,
 	r = RET_PF_RETRY;
 	read_lock(&vcpu->kvm->mmu_lock);
 
+	if (fault->is_janus_map) {
+		printf("begin is_page_fault_stale\n");
+	}
+
 	if (is_page_fault_stale(vcpu, fault))
 		goto out_unlock;
 

@@ -1094,6 +1094,9 @@ static int tdp_mmu_map_handle_target_level(struct kvm_vcpu *vcpu,
 	bool wrprot = false;
 	unsigned int pte_access = ACC_ALL;
 
+	janus_debug_fault(fault, "handle_target_level: sp->role.level (%d), "
+				  "goal_level(%d)\n",
+			  sp->role.level, fault->goal_level);
 	if (WARN_ON_ONCE(sp->role.level != fault->goal_level))
 		return RET_PF_RETRY;
 
@@ -1105,6 +1108,10 @@ static int tdp_mmu_map_handle_target_level(struct kvm_vcpu *vcpu,
 		wrprot = make_spte(vcpu, sp, fault->slot, pte_access, iter->gfn,
 					 fault->pfn, iter->old_spte, fault->prefetch, true,
 					 fault->map_writable, &new_spte);
+		janus_debug_fault(fault, "old_spte is %lx new_spte is %lx\n",
+					  (unsigned long)iter->old_spte,
+					  (unsigned long)new_spte);
+	}
 
 	if (new_spte == iter->old_spte)
 		ret = RET_PF_SPURIOUS;
@@ -1194,9 +1201,11 @@ int kvm_tdp_mmu_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 			}
 		}
 		if (!root_sp) {
+			janus_debug_fault(fault, "cannot get root sp, sp_role = %u", fault->root_role.word);
 			return ret;
 		}
 		fault_gfn = fault->gaddr_l2 >> PAGE_SHIFT;
+		janus_debug_fault(fault, "fault_gfn is %lx\n", (unsigned long)fault_gfn);
 	} else {
 		fault_gfn = fault->gfn;
 		root_sp = root_to_sp(mmu->root.hpa);
@@ -1208,6 +1217,11 @@ int kvm_tdp_mmu_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 	trace_kvm_mmu_spte_requested(fault);
 
 	rcu_read_lock();
+
+	janus_debug_fault(fault, "root sp (%lx) level(%d) spt(%lx)\n",
+			  (unsigned long)root_sp,
+			  root_sp->role.level,
+			  (unsigned long)root_sp->spt);
 
 	for_each_tdp_pte(iter, root_sp, fault_gfn, fault_gfn + 1)
 	{
@@ -1238,12 +1252,20 @@ int kvm_tdp_mmu_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 		sp = tdp_mmu_alloc_sp(vcpu);
 		tdp_mmu_init_child_sp(sp, &iter);
 
+		janus_debug_fault(fault, "alloc sp(%lx) level(%d) spt(%lx)\n",
+				  (unsigned long)sp,
+				  sp->role.level,
+				  (unsigned long)sp->spt);
+		janus_debug_fault(fault, "iter->sptep(%lx)\n", (unsigned long)iter.sptep);
+		janus_debug_fault(fault, "(old) iter->sptep value(%lx)\n",
+					 (unsigned long)*iter.sptep);
 		sp->nx_huge_page_disallowed = fault->huge_page_disallowed;
 
 		if (is_shadow_present_pte(iter.old_spte))
 			r = tdp_mmu_split_huge_page(kvm, &iter, sp, true);
 		else
 			r = tdp_mmu_link_sp(kvm, &iter, sp, true);
+		janus_debug_fault(fault, "(new) iter->sptep value(%lx)\n", (unsigned long)*iter.sptep);
 
 		/*
 		 * Force the guest to retry if installing an upper level SPTE
@@ -1272,7 +1294,6 @@ int kvm_tdp_mmu_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 
 map_target_level:
 	ret = tdp_mmu_map_handle_target_level(vcpu, fault, &iter);
-
 retry:
 	rcu_read_unlock();
 	return ret;
